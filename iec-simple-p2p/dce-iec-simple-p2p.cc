@@ -12,7 +12,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/constant-position-mobility-model.h"
 #include "ccnx/misc-tools.h"
-#include "utils/my_utils.h"
+#include "utils/my-utils.h"
 
 #include <string>
 #include <sstream>
