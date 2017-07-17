@@ -1,0 +1,11 @@
+## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+import ns3waf
+
+def configure(conf):
+        conf.load('compiler_c')
+        conf.load('compiler_cxx')
+        ns3waf.check_modules(conf, ['core', 'point-to-point', 'internet', 'network', 'applications', 'csma'], mandatory = True)
+
+def build(bld):
+        bld.build_a_script('dce', needed = ['core', 'point-to-point', 'network', 'applications', 'dce', 'mobility'], target='bin/dce-iec-simple-p2p', source=['dce-iec-simple-p2p.cc', 'ccnx/misc-tools.cc', 'utils/my-utils.cc'] )
