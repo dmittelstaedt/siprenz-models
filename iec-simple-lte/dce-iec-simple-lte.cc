@@ -155,7 +155,7 @@ int main (int argc, char *argv[])
 
      lteHelper->Attach (ueDevs, enbDevs.Get (0));
 
-     //TODO: DedicatedEpSBearer neccessary
+     //TODO: DedicatedEpSBearer not neccessary, there is always a default bearer
      // Ptr<EpcTft> tft = Create<EpcTft> ();
      // EpcTft::PacketFilter pf;
      // pf.localPortStart = 1234;
