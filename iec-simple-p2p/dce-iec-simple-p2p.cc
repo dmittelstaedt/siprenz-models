@@ -12,7 +12,8 @@
 #include "ns3/applications-module.h"
 #include "ns3/constant-position-mobility-model.h"
 #include "ccnx/misc-tools.h"
-#include "utils/my-utils.h"
+#include "utils/ip-helper.h"
+#include "utils/string-helper.h"
 #include "ns3/config-store.h"
 
 #include <string>
@@ -55,6 +56,8 @@ int main (int argc, char *argv[])
      string configFileOut = "";
      bool pcapTracing = false;
      bool asciiTracing = false;
+     double duration = 30.0;
+     string filePrefix = "simplep2p";
 
      // parsing arguments given from the command line
      CommandLine cmd;
@@ -64,6 +67,7 @@ int main (int argc, char *argv[])
      cmd.AddValue ("Delay", "Delay of the connection", delay);
      cmd.AddValue ("PcapTracing", "Tracing with pcap files", pcapTracing);
      cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
+     cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.Parse (argc, argv);
 
      NS_LOG_INFO ("Reading Input.");
@@ -95,6 +99,7 @@ int main (int argc, char *argv[])
      } else {
           NS_LOG_INFO ("AsciiTracing: false");
      }
+     NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
      NS_LOG_INFO ("Building P2P topology.");
 
@@ -148,7 +153,7 @@ int main (int argc, char *argv[])
      dce.SetBinary (client);
      dce.ResetArguments ();
      dce.ResetEnvironment ();
-     dce.AddArgument (MyUtils::ipAddressToString(nodes, 0));
+     dce.AddArgument (IpHelper::getIp(nodes.Get(0)));
      apps = dce.Install (nodes.Get (1));
      apps.Start (Seconds (15.0));
      apps.Stop (Seconds (20.0));
@@ -156,17 +161,17 @@ int main (int argc, char *argv[])
      // enabling pcap tracing
      if (pcapTracing) {
           NS_LOG_INFO ("Enabling pcap tracing.");
-          pointToPoint.EnablePcapAll ("simple_p2p", false);
+          pointToPoint.EnablePcapAll (filePrefix, false);
      }
 
      // enabling ASCII tracing
      if (asciiTracing) {
           NS_LOG_INFO ("Enabling ASCII tracing.");
           AsciiTraceHelper ascii;
-          pointToPoint.EnableAsciiAll (ascii.CreateFileStream ("simple2p2.tr"));
+          pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
      }
 
-     Simulator::Stop (Seconds(30.0));
+     Simulator::Stop (Seconds(duration));
 
      // enabling output config
      if (! configFileOut.empty()) {
