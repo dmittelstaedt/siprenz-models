@@ -130,7 +130,7 @@ int main (int argc, char *argv[])
      address.SetBase ("10.1.1.0", "255.255.255.252");
      Ipv4InterfaceContainer interfaces = address.Assign (devices);
 
-     // // turning on global static routing
+     // turning on global static routing
      Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
      // installing the applications on the nodes

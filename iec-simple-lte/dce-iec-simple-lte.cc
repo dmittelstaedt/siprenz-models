@@ -12,6 +12,8 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/dce-module.h"
+#include "utils/ip-helper.h"
+#include "utils/string-helper.h"
 #include "ns3/config-store.h"
 #include <string>
 #include <sstream>
@@ -21,39 +23,12 @@ using namespace std;
 
 // ===========================================================================
 //
+// TODO: graphic with modell
+//
 // Note : Tested with libIEC61850.
 // ===========================================================================
 
 NS_LOG_COMPONENT_DEFINE ("SimpleLTE");
-
-// Function to get a value as string
-template <typename T>
-string toString(T const& value) {
-     stringstream sstr;
-     sstr << value;
-     return sstr.str();
-}
-
-// Function to get the IP-Address as string from nodecontainer
-string getIpFromNodeContainer(NodeContainer& nodes, uint32_t index) {
-     Ptr<Node> node =  nodes.Get(index); // Get pointer to ith node in container
-     Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> (); // Get Ipv4 instance of the node
-     Ipv4Address addri = ipv4->GetAddress (1, 0).GetLocal (); // Get Ipv4InterfaceAddress of xth interface.
-     ostringstream stream;
-     addri.Print(stream);
-     string ip = stream.str();
-     return ip;
-}
-
-// Function to get the IP-Address as string from a node
-string getIpFromNode(Ptr<Node> node) {
-     Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> (); // Get Ipv4 instance of the node
-     Ipv4Address addri = ipv4->GetAddress (1, 0).GetLocal (); // Get Ipv4InterfaceAddress of xth interface.
-     ostringstream stream;
-     addri.Print(stream);
-     string ip = stream.str();
-     return ip;
-}
 
 int main (int argc, char *argv[])
 {
@@ -62,63 +37,112 @@ int main (int argc, char *argv[])
      string server = "simple-iec-server";
      string client = "simple-iec-client";
      string dataRate = "100Mbps";
-     // string delay = "2ms";
-     double delay = 0.002;
-     bool tracing = false;
+     string delay = "2ms";
+     string configFileIn = "";
+     string configFileOut = "";
+     bool pcapTracing = false;
+     bool asciiTracing = false;
+     bool lteTracing = false;
+     double duration = 30.0;
+     string filePrefix = "simplelte";
 
-     //TODO: ConfigStore
+     // parsing arguments given from the command line
      CommandLine cmd;
+     cmd.AddValue ("ConfigFileIn", "Input config file", configFileIn);
+     cmd.AddValue ("ConfigFileOut", "Output config file", configFileOut);
      cmd.AddValue ("DataRate", "Datarate of the connection", dataRate);
      cmd.AddValue ("Delay", "Delay of the connection", delay);
-     cmd.AddValue ("Tracing", "Tracing with pcap files", tracing);
+     cmd.AddValue ("PcapTracing", "Tracing with pcap files", pcapTracing);
+     cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
+     cmd.AddValue ("LteTracing", "Tracing with LTE files", lteTracing);
+     cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.Parse (argc, argv);
 
-     NS_LOG_INFO("Reading Input.");
+     NS_LOG_INFO ("Reading Input.");
 
+     // enabling input config
+     if (! configFileIn.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileIn));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Load"));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          ConfigStore inputConfig;
+          inputConfig.ConfigureDefaults ();
+     }
+
+     // logging simulation parameters
+     NS_LOG_INFO ("ConfigFileIn: " + configFileIn);
+     NS_LOG_INFO ("ConfigFileOut: " + configFileOut);
      NS_LOG_INFO ("Protocol: " + protocol);
      NS_LOG_INFO ("Server: " + server);
      NS_LOG_INFO ("Client: " + client);
      NS_LOG_INFO ("DataRate: " + dataRate);
-     NS_LOG_INFO ("Delay: " + toString(delay));
-     if (tracing) {
-          NS_LOG_INFO ("Tracing: true");
+     NS_LOG_INFO ("Delay: " + delay);
+     if (pcapTracing) {
+          NS_LOG_INFO ("PcapTracing: true");
      } else {
-          NS_LOG_INFO ("Tracing: false");
+          NS_LOG_INFO ("PcapTracing: false");
      }
+     if (asciiTracing) {
+          NS_LOG_INFO ("AsciiTracing: true");
+     } else {
+          NS_LOG_INFO ("AsciiTracing: false");
+     }
+     if (lteTracing) {
+          NS_LOG_INFO ("LteTracing: true");
+     } else {
+          NS_LOG_INFO ("LteTracing: false");
+     }
+     NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
+     NS_LOG_INFO ("Building Simple LTE topology.");
+
+     NS_LOG_INFO ("Creating EPC.");
      Ptr<LteHelper> lteHelper = CreateObject<LteHelper> ();
      Ptr<PointToPointEpcHelper> epcHelper = CreateObject<PointToPointEpcHelper> ();
-
      lteHelper->SetEpcHelper (epcHelper);
 
-     Ptr<Node> pgw = epcHelper->GetPgwNode ();
+     // NS_LOG_INFO ("Creating PGW node.");
+     // Ptr<Node> pgw = epcHelper->GetPgwNode ();
 
      // Create a single RemoteHost
+     NS_LOG_INFO ("Creating single remote node.");
      NodeContainer remoteHostContainer;
      remoteHostContainer.Create (1);
-     Ptr<Node> remoteHost = remoteHostContainer.Get (0);
+     // Ptr<Node> remoteHost = remoteHostContainer.Get (0);
+
+     // installing the internet stack on the remote node
+     NS_LOG_INFO ("Installing internet stack on remote node.");
      InternetStackHelper internet;
      internet.Install (remoteHostContainer);
 
-     // Create the internet
-     PointToPointHelper p2ph;
-     p2ph.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (dataRate)));
-     p2ph.SetDeviceAttribute ("Mtu", UintegerValue (1500));
-     p2ph.SetChannelAttribute ("Delay", TimeValue (Seconds (delay)));
-     NetDeviceContainer internetDevices = p2ph.Install (pgw, remoteHost);
+     // creating point to point helper
+     NS_LOG_INFO ("Creating PointToPointHelper.");
+     PointToPointHelper pointToPoint;
+     pointToPoint.SetDeviceAttribute ("DataRate", StringValue (dataRate));
+     pointToPoint.SetChannelAttribute ("Delay", StringValue (delay));
+
+     // creating net device container
+     NS_LOG_INFO ("Creating NetDeviceContainer.");
+     NetDeviceContainer internetDevices = pointToPoint.Install (epcHelper->GetPgwNode (), remoteHostContainer.Get (0));
+
+     // assigning ip addresses
+     NS_LOG_INFO ("Assigning IP Addresses.");
      Ipv4AddressHelper ipv4h;
      ipv4h.SetBase ("10.1.1.0", "255.255.255.0");
      Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
 
      NS_LOG_INFO("Internet IP interfaces: " << internetIpIfaces.GetN());
 
+     // turning on static routing for the remote node
      Ipv4StaticRoutingHelper ipv4RoutingHelper;
-     Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHost->GetObject<Ipv4> ());
+     Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHostContainer.Get (0)->GetObject<Ipv4> ());
      remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
 
+     // creating the LTE nodes
+     NS_LOG_INFO ("Creating LTE nodes.");
      NodeContainer enbNodes, ueNodes;
      enbNodes.Create (1);
-     ueNodes.Create (2);
+     ueNodes.Create (1);
 
      //TODO: how to set the position
      MobilityHelper mobility;
@@ -127,31 +151,28 @@ int main (int argc, char *argv[])
      mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
      mobility.Install (ueNodes);
 
+     // creating net device container
+     NS_LOG_INFO ("Creating NetDeviceContainer for the LTE nodes.");
      NetDeviceContainer enbDevs;
      enbDevs = lteHelper->InstallEnbDevice (enbNodes);
-
      NetDeviceContainer ueDevs;
      ueDevs = lteHelper->InstallUeDevice (ueNodes);
 
      NS_LOG_INFO("NetDevices: " << ueDevs.GetN());
 
+     // installing internet stack on the ue nodes
+     NS_LOG_INFO ("Installing internet stack on the ue nodes.");
      internet.Install (ueNodes);
 
-     Ipv4InterfaceContainer ueIpIface;
      // assign IP address to UEs
-     for (uint32_t u = 0; u < ueNodes.GetN (); ++u)
-     {
-          Ptr<Node> ue = ueNodes.Get (u);
-          Ptr<NetDevice> ueLteDevice = ueDevs.Get (u);
-          ueIpIface.Add(epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueLteDevice)));
-          // set the default gateway for the UE
-          Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ue->GetObject<Ipv4> ());
-          ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
-     }
-
-     NS_LOG_INFO("Interface Container: " << ueIpIface.GetN ());
-
-     NS_LOG_INFO("IP address of first ue node: " + getIpFromNode(ueNodes.Get(1)));
+     NS_LOG_INFO ("Assigning IP addresses to the ue nodes.");
+     Ipv4InterfaceContainer ueIpIface;
+     Ptr<Node> ue = ueNodes.Get (0);
+     Ptr<NetDevice> ueLteDevice = ueDevs.Get (0);
+     ueIpIface.Add(epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueLteDevice)));
+     // set the default gateway for the UE
+     Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ue->GetObject<Ipv4> ());
+     ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
 
      lteHelper->Attach (ueDevs, enbDevs.Get (0));
 
@@ -179,43 +200,52 @@ int main (int argc, char *argv[])
      apps = dce.Install (ueNodes.Get (0));
      apps.Start (Seconds (1.0));
 
-     // Launch iec server on second ue node
-     // dce.SetBinary (server);
-     // dce.ResetArguments ();
-     // dce.ResetEnvironment ();
-     // apps = dce.Install (ueNodes.Get (1));
-     // apps.Start (Seconds (3.0));
-
-     // Launch iec client on the remoteHost
+     // Launch iec client on the remote node
      dce.SetBinary (client);
      dce.ResetArguments ();
      dce.ResetEnvironment ();
-     dce.AddArgument ("7.0.0.2");
+     dce.AddArgument (IpHelper::getIp(ueNodes.Get(0)));
      apps = dce.Install (remoteHostContainer.Get(0));
-     apps.Start (Seconds (3.0));
-     apps.Stop (Seconds (5.0));
+     apps.Start (Seconds (15.0));
+     apps.Stop (Seconds (20.0));
 
-     // dce.SetBinary (client);
-     // dce.ResetArguments ();
-     // dce.ResetEnvironment ();
-     // dce.AddArgument ("7.0.0.2");
-     // apps = dce.Install (ueNodes.Get (1));
-     // apps.Start (Seconds (3.0));
-     // apps.Stop (Seconds (5.0));
-
-     // Define at the end of the simulation script
-     // lteHelper->EnablePhyTraces ();
-     // lteHelper->EnableMacTraces ();
-     // lteHelper->EnableRlcTraces ();
-     // lteHelper->EnablePdcpTraces ();
-
-     if (tracing) {
+     // enabling pcap tracing
+     if (pcapTracing) {
           NS_LOG_INFO ("Enabling pcap tracing.");
-          p2ph.EnablePcapAll ("simple_lte", false);
+          pointToPoint.EnablePcapAll (filePrefix, false);
      }
 
+     // enabling ASCII tracing
+     if (asciiTracing) {
+          NS_LOG_INFO ("Enabling ASCII tracing.");
+          AsciiTraceHelper ascii;
+          pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
+     }
+
+     // enabling LTE tracing
+     // define at the end of the simulation script
+     if (lteTracing) {
+          NS_LOG_INFO ("Enabling LTE tracing.");
+          lteHelper->EnablePhyTraces ();
+          lteHelper->EnableMacTraces ();
+          lteHelper->EnableRlcTraces ();
+          lteHelper->EnablePdcpTraces ();
+     }
+
+     Simulator::Stop (Seconds(duration));
+
+     // enabling output config
+     if (! configFileOut.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileOut));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
+          ConfigStore outputConfig;
+          outputConfig.ConfigureDefaults ();
+          outputConfig.ConfigureAttributes ();
+     }
+
+     // running simulation
      NS_LOG_INFO ("Running Simulation.");
-     Simulator::Stop (Seconds(10.0));
      Simulator::Run ();
      Simulator::Destroy ();
      NS_LOG_INFO ("Simulation done.");
