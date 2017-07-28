@@ -28,7 +28,7 @@ using namespace std;
 // Note : Tested with libIEC61850.
 // ===========================================================================
 
-NS_LOG_COMPONENT_DEFINE ("SimpleLTE");
+NS_LOG_COMPONENT_DEFINE ("GenericLTE");
 
 int main (int argc, char *argv[])
 {
@@ -43,8 +43,9 @@ int main (int argc, char *argv[])
      bool pcapTracing = false;
      bool asciiTracing = false;
      bool lteTracing = false;
-     double duration = 30.0;
-     string filePrefix = "simplelte";
+     double duration = 10.0;
+     uint32_t nUes = 2;
+     string filePrefix = "genericlte";
 
      // parsing arguments given from the command line
      CommandLine cmd;
@@ -56,6 +57,7 @@ int main (int argc, char *argv[])
      cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
      cmd.AddValue ("LteTracing", "Tracing with LTE files", lteTracing);
      cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
+     cmd.AddValue ("nUEs", "Number of UEs", nUes);
      cmd.Parse (argc, argv);
 
      NS_LOG_INFO ("Reading Input.");
@@ -93,6 +95,7 @@ int main (int argc, char *argv[])
           NS_LOG_INFO ("LteTracing: false");
      }
      NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
+     NS_LOG_INFO ("nUEs: " + StringHelper::toString(nUes));
 
      NS_LOG_INFO ("Building Simple LTE topology.");
 
@@ -131,8 +134,6 @@ int main (int argc, char *argv[])
      ipv4h.SetBase ("10.1.1.0", "255.255.255.0");
      Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
 
-     NS_LOG_INFO("Internet IP interfaces: " << internetIpIfaces.GetN());
-
      // turning on static routing for the remote node
      Ipv4StaticRoutingHelper ipv4RoutingHelper;
      Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHostContainer.Get (0)->GetObject<Ipv4> ());
@@ -142,7 +143,7 @@ int main (int argc, char *argv[])
      NS_LOG_INFO ("Creating LTE nodes.");
      NodeContainer enbNodes, ueNodes;
      enbNodes.Create (1);
-     ueNodes.Create (1);
+     ueNodes.Create (nUes);
 
      //TODO: how to set the position
      MobilityHelper mobility;
@@ -167,12 +168,15 @@ int main (int argc, char *argv[])
      // assign IP address to UEs
      NS_LOG_INFO ("Assigning IP addresses to the ue nodes.");
      Ipv4InterfaceContainer ueIpIface;
-     Ptr<Node> ue = ueNodes.Get (0);
-     Ptr<NetDevice> ueLteDevice = ueDevs.Get (0);
-     ueIpIface.Add(epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueLteDevice)));
-     // set the default gateway for the UE
-     Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ue->GetObject<Ipv4> ());
-     ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
+     for (uint32_t i = 0; i < ueNodes.GetN (); ++i)
+     {
+          Ptr<Node> ue = ueNodes.Get (i);
+          Ptr<NetDevice> ueLteDevice = ueDevs.Get (i);
+          ueIpIface.Add(epcHelper->AssignUeIpv4Address (NetDeviceContainer (ueLteDevice)));
+          // set the default gateway for the UE
+          Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ue->GetObject<Ipv4> ());
+          ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
+     }
 
      lteHelper->Attach (ueDevs, enbDevs.Get (0));
 
@@ -184,6 +188,7 @@ int main (int argc, char *argv[])
      // tft->Add (pf);
      // lteHelper->ActivateDedicatedEpsBearer (ueDevs, EpsBearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT), tft);
 
+     // installing applications
      NS_LOG_INFO ("Installing applications.");
      DceManagerHelper dceManager;
      DceApplicationHelper dce;
@@ -193,21 +198,25 @@ int main (int argc, char *argv[])
 
      dce.SetStackSize (1<<20);
 
-     // Launch iec server on first ue node
-     dce.SetBinary (server);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     apps = dce.Install (ueNodes.Get (0));
-     apps.Start (Seconds (1.0));
+     // Launch iec server on the ue nodes
+     for (uint32_t i = 0; i < ueNodes.GetN (); ++i) {
+          dce.SetBinary (server);
+          dce.ResetArguments ();
+          dce.ResetEnvironment ();
+          apps = dce.Install (ueNodes.Get (i));
+          apps.Start (Seconds (1.0));
+     }
 
      // Launch iec client on the remote node
-     dce.SetBinary (client);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     dce.AddArgument (IpHelper::getIp(ueNodes.Get(0)));
-     apps = dce.Install (remoteHostContainer.Get(0));
-     apps.Start (Seconds (3.0));
-     apps.Stop (Seconds (duration));
+     for (uint32_t i = 0; i < ueNodes.GetN (); ++i) {
+          dce.SetBinary (client);
+          dce.ResetArguments ();
+          dce.ResetEnvironment ();
+          dce.AddArgument (IpHelper::getIp(ueNodes.Get(i)));
+          apps = dce.Install (remoteHostContainer.Get(0));
+          apps.Start (Seconds (3.0));
+          apps.Stop (Seconds (duration));
+     }
 
      // enabling pcap tracing
      if (pcapTracing) {
