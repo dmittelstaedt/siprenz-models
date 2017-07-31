@@ -23,12 +23,21 @@ using namespace std;
 
 // ===========================================================================
 //
-// TODO: graphic with modell
+//   UE 7.0.0.0
+//
+//  *    *    *
+//  |    |    |       10.1.1.0
+//  ue1 enb  PGW ----------------- RH
+//                point-to-point   |
+//                                 |
+//                                 |
+//                                 s1
+//
 //
 // Note : Tested with libIEC61850.
 // ===========================================================================
 
-NS_LOG_COMPONENT_DEFINE ("SimpleLTE");
+NS_LOG_COMPONENT_DEFINE ("MixedLTE");
 
 int main (int argc, char *argv[])
 {
@@ -43,8 +52,8 @@ int main (int argc, char *argv[])
      bool pcapTracing = false;
      bool asciiTracing = false;
      bool lteTracing = false;
-     double duration = 30.0;
-     string filePrefix = "simplelte";
+     double duration = 10.0;
+     string filePrefix = "mixedlte";
 
      // parsing arguments given from the command line
      CommandLine cmd;
@@ -94,53 +103,54 @@ int main (int argc, char *argv[])
      }
      NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
-     NS_LOG_INFO ("Building Simple LTE topology.");
+     NS_LOG_INFO ("Building Mixed LTE topology.");
 
      NS_LOG_INFO ("Creating EPC.");
      Ptr<LteHelper> lteHelper = CreateObject<LteHelper> ();
      Ptr<PointToPointEpcHelper> epcHelper = CreateObject<PointToPointEpcHelper> ();
      lteHelper->SetEpcHelper (epcHelper);
 
-     // NS_LOG_INFO ("Creating PGW node.");
-     // Ptr<Node> pgw = epcHelper->GetPgwNode ();
+     // Create the client as single remote node
+     NS_LOG_INFO ("Creating the client as remote node.");
+     NodeContainer remoteNode;
+     remoteNode.Create (1);
 
-     // Create a single RemoteHost
-     NS_LOG_INFO ("Creating single remote node.");
-     NodeContainer remoteHostContainer;
-     remoteHostContainer.Create (1);
-     // Ptr<Node> remoteHost = remoteHostContainer.Get (0);
+     // Create a server as p2p node
+     NS_LOG_INFO ("Creating a server as P2P node.");
+     NodeContainer p2pNode;
+     p2pNode.Create (1);
 
-     // creating single p2p server
-     NodeContainer p2pnode;
-     p2pnode.Create (1);
-
-     // installing the internet stack on the remote node
-     NS_LOG_INFO ("Installing internet stack on remote node.");
+     // installing the internet stack on the p2p nodes
+     NS_LOG_INFO ("Installing internet stack on the p2p nodes.");
      InternetStackHelper internet;
-     internet.Install (remoteHostContainer);
-     internet.Install (p2pnode);
+     internet.Install (remoteNode);
+     internet.Install (p2pNode);
 
      // creating point to point helper
      NS_LOG_INFO ("Creating PointToPointHelper.");
-     PointToPointHelper pointToPoint;
-     pointToPoint.SetDeviceAttribute ("DataRate", StringValue (dataRate));
-     pointToPoint.SetChannelAttribute ("Delay", StringValue (delay));
+     PointToPointHelper pointToPoint_pgw_rn, pointToPoint_rn_pn;
+     pointToPoint_pgw_rn.SetDeviceAttribute ("DataRate", StringValue (dataRate));
+     pointToPoint_pgw_rn.SetChannelAttribute ("Delay", StringValue (delay));
+     pointToPoint_rn_pn.SetDeviceAttribute ("DataRate", StringValue (dataRate));
+     pointToPoint_rn_pn.SetChannelAttribute ("Delay", StringValue (delay));
 
      // creating net device container
      NS_LOG_INFO ("Creating NetDeviceContainer.");
-     NetDeviceContainer internetDevices = pointToPoint.Install (epcHelper->GetPgwNode (), remoteHostContainer.Get (0));
+     NetDeviceContainer devices_pgw_rn = pointToPoint_pgw_rn.Install (epcHelper->GetPgwNode (), remoteNode.Get (0));
+     NetDeviceContainer devices_rn_pn = pointToPoint_rn_pn.Install (remoteNode.Get (0), p2pNode.Get (0));
 
      // assigning ip addresses
      NS_LOG_INFO ("Assigning IP Addresses.");
-     Ipv4AddressHelper ipv4h;
-     ipv4h.SetBase ("10.1.1.0", "255.255.255.0");
-     Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
-
-     NS_LOG_INFO("Internet IP interfaces: " << internetIpIfaces.GetN());
+     Ipv4AddressHelper address;
+     Ipv4InterfaceContainer interfaces;
+     address.SetBase ("10.1.1.0", "255.255.255.0");
+     interfaces.Add (address.Assign (devices_pgw_rn));
+     address.SetBase ("10.1.2.0", "255.255.255.252");
+     interfaces.Add (address.Assign (devices_rn_pn));
 
      // turning on static routing for the remote node
      Ipv4StaticRoutingHelper ipv4RoutingHelper;
-     Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHostContainer.Get (0)->GetObject<Ipv4> ());
+     Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteNode.Get (0)->GetObject<Ipv4> ());
      remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
 
      // creating the LTE nodes
@@ -158,12 +168,9 @@ int main (int argc, char *argv[])
 
      // creating net device container
      NS_LOG_INFO ("Creating NetDeviceContainer for the LTE nodes.");
-     NetDeviceContainer enbDevs;
+     NetDeviceContainer enbDevs, ueDevs;
      enbDevs = lteHelper->InstallEnbDevice (enbNodes);
-     NetDeviceContainer ueDevs;
      ueDevs = lteHelper->InstallUeDevice (ueNodes);
-
-     NS_LOG_INFO("NetDevices: " << ueDevs.GetN());
 
      // installing internet stack on the ue nodes
      NS_LOG_INFO ("Installing internet stack on the ue nodes.");
@@ -189,42 +196,60 @@ int main (int argc, char *argv[])
      // tft->Add (pf);
      // lteHelper->ActivateDedicatedEpsBearer (ueDevs, EpsBearer (EpsBearer::NGBR_VIDEO_TCP_DEFAULT), tft);
 
+     // Install applications on the nodes.
      NS_LOG_INFO ("Installing applications.");
      DceManagerHelper dceManager;
      DceApplicationHelper dce;
      ApplicationContainer apps;
      dceManager.Install (ueNodes);
-     dceManager.Install (remoteHostContainer);
+     dceManager.Install (remoteNode);
+     dceManager.Install (p2pNode);
 
      dce.SetStackSize (1<<20);
 
-     // Launch iec server on first ue node
+     // Launch iec server on the ue node
      dce.SetBinary (server);
      dce.ResetArguments ();
      dce.ResetEnvironment ();
      apps = dce.Install (ueNodes.Get (0));
      apps.Start (Seconds (1.0));
 
+     // Launch iec server on p2p node
+     dce.SetBinary (server);
+     dce.ResetArguments ();
+     dce.ResetEnvironment ();
+     apps = dce.Install (p2pNode.Get (0));
+     apps.Start (Seconds (3.0));
+
      // Launch iec client on the remote node
      dce.SetBinary (client);
      dce.ResetArguments ();
      dce.ResetEnvironment ();
-     dce.AddArgument (IpHelper::getIp(ueNodes.Get(0)));
-     apps = dce.Install (remoteHostContainer.Get(0));
-     apps.Start (Seconds (3.0));
+     dce.AddArgument (IpHelper::getIp(ueNodes.Get (0)));
+     apps = dce.Install (remoteNode.Get(0));
+     apps.Start (Seconds (4.0));
+     apps.Stop (Seconds (duration));
+
+     // Launch iec client on the remote node
+     dce.SetBinary (client);
+     dce.ResetArguments ();
+     dce.ResetEnvironment ();
+     dce.AddArgument (IpHelper::getIp(p2pNode.Get (0)));
+     apps = dce.Install (remoteNode.Get(0));
+     apps.Start (Seconds (8.0));
      apps.Stop (Seconds (duration));
 
      // enabling pcap tracing
      if (pcapTracing) {
           NS_LOG_INFO ("Enabling pcap tracing.");
-          pointToPoint.EnablePcapAll (filePrefix, false);
+          pointToPoint_pgw_rn.EnablePcapAll (filePrefix, false);
      }
 
      // enabling ASCII tracing
      if (asciiTracing) {
           NS_LOG_INFO ("Enabling ASCII tracing.");
           AsciiTraceHelper ascii;
-          pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
+          pointToPoint_pgw_rn.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
      }
 
      // enabling LTE tracing

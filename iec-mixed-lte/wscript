@@ -1,0 +1,11 @@
+## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+import ns3waf
+
+def configure(conf):
+        conf.load('compiler_c')
+        conf.load('compiler_cxx')
+        ns3waf.check_modules(conf, ['core', 'point-to-point', 'internet', 'network', 'applications', 'lte'], mandatory = True)
+
+def build(bld):
+        bld.build_a_script('dce', needed = ['core', 'point-to-point', 'network', 'applications', 'dce', 'mobility', 'lte'], target='bin/dce-iec-mixed-lte', source=['dce-iec-mixed-lte.cc', 'utils/ip-helper.cc', 'utils/string-helper.cc'] )
