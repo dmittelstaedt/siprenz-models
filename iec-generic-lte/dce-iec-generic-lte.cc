@@ -43,7 +43,7 @@ int main (int argc, char *argv[])
      bool pcapTracing = false;
      bool asciiTracing = false;
      bool lteTracing = false;
-     double duration = 10.0;
+     double duration = 30.0;
      uint32_t nUes = 2;
      string filePrefix = "genericlte";
 
@@ -203,6 +203,9 @@ int main (int argc, char *argv[])
           dce.SetBinary (server);
           dce.ResetArguments ();
           dce.ResetEnvironment ();
+          dce.AddArgument ("-p 10102");
+          dce.AddArgument ("-w 36");
+          dce.AddArgument ("-v");
           apps = dce.Install (ueNodes.Get (i));
           apps.Start (Seconds (1.0));
      }
@@ -212,10 +215,12 @@ int main (int argc, char *argv[])
           dce.SetBinary (client);
           dce.ResetArguments ();
           dce.ResetEnvironment ();
+          dce.AddArgument ("-c 4");
+          dce.AddArgument ("-s 1");
+          dce.AddArgument ("-p 10102");
           dce.AddArgument (IpHelper::getIp(ueNodes.Get(i)));
           apps = dce.Install (remoteHostContainer.Get(0));
-          apps.Start (Seconds (3.0));
-          apps.Stop (Seconds (duration));
+          apps.Start (Seconds (5.0));
      }
 
      // enabling pcap tracing

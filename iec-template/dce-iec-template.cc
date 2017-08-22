@@ -10,8 +10,6 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/constant-position-mobility-model.h"
-#include "ccnx/misc-tools.h"
 #include "utils/ip-helper.h"
 #include "utils/string-helper.h"
 #include "ns3/config-store.h"
@@ -24,10 +22,10 @@ using namespace std;
 
 // ===========================================================================
 //
-// No Topology, only a template.
+// No Topology, only a template with one node.
 //
-// Note : Tested with libIEC61850, simple_iec_server and simple_iec_client.
-//        The libIEC61850-applications are written by David Mittelstaedt.
+// Note : Tested with libIEC61850, simple-iec61850-server and
+//        simple-iec61850-client.
 // ===========================================================================
 
 NS_LOG_COMPONENT_DEFINE ("Template");
@@ -58,7 +56,7 @@ int main (int argc, char *argv[])
      cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.Parse (argc, argv);
 
-     NS_LOG_INFO ("Reading Input.");
+     NS_LOG_INFO ("Reading Input");
 
      // enabling input config
      if (! configFileIn.empty()) {
@@ -89,30 +87,30 @@ int main (int argc, char *argv[])
      }
      NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
-     NS_LOG_INFO ("Building Template topology.");
+     NS_LOG_INFO ("Building Template topology");
 
      // creating nodes
-     NS_LOG_INFO ("Creating Nodes.");
+     NS_LOG_INFO ("Creating Nodes");
      NodeContainer nodes;
      nodes.Create (1);
 
      // creating point to point helper
-     NS_LOG_INFO ("Creating PointToPointHelper.");
+     NS_LOG_INFO ("Creating PointToPointHelper");
      PointToPointHelper pointToPoint;
      pointToPoint.SetDeviceAttribute ("DataRate", StringValue (dataRate));
      pointToPoint.SetChannelAttribute ("Delay", StringValue (delay));
 
      // creating net device container
-     NS_LOG_INFO ("Creating NetDeviceContainer.");
+     NS_LOG_INFO ("Creating NetDeviceContainer");
      NetDeviceContainer devices;
 
      // installing the internet stack on all nodes
-     NS_LOG_INFO ("Installing internet stack on all nodes.");
+     NS_LOG_INFO ("Installing internet stack on all nodes");
      InternetStackHelper stack;
      stack.InstallAll ();
 
      // assigning ip addresses
-     NS_LOG_INFO ("Assigning IP Addresses.");
+     NS_LOG_INFO ("Assigning IP Addresses");
      Ipv4AddressHelper address;
 
      // // turning on global static routing
@@ -136,13 +134,13 @@ int main (int argc, char *argv[])
 
      // enabling pcap tracing
      if (pcapTracing) {
-          NS_LOG_INFO ("Enabling pcap tracing.");
+          NS_LOG_INFO ("Enabling pcap tracing");
           pointToPoint.EnablePcapAll (filePrefix, false);
      }
 
      // enabling ASCII tracing
      if (asciiTracing) {
-          NS_LOG_INFO ("Enabling ASCII tracing.");
+          NS_LOG_INFO ("Enabling ASCII tracing");
           AsciiTraceHelper ascii;
           pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
      }
@@ -160,10 +158,10 @@ int main (int argc, char *argv[])
      }
 
      // running simulation
-     NS_LOG_INFO ("Running Simulation.");
+     NS_LOG_INFO ("Running Simulation");
      Simulator::Run ();
      Simulator::Destroy ();
-     NS_LOG_INFO ("Simulation done.");
+     NS_LOG_INFO ("Simulation done");
 
      return 0;
 }

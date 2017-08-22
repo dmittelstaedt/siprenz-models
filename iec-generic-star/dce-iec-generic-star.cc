@@ -11,6 +11,9 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/point-to-point-layout-module.h"
+#include "utils/ip-helper.h"
+#include "utils/string-helper.h"
+#include "ns3/config-store.h"
 
 #include <string>
 #include <sstream>
@@ -37,113 +40,148 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("GenericStar");
 
-// Function to get the IP-Address as string
-string ipAddressToString(NodeContainer& nodes, uint32_t index) {
-     Ptr<Node> node =  nodes.Get(index); // Get pointer to ith node in container
-     Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> (); // Get Ipv4 instance of the node
-     Ipv4Address addri = ipv4->GetAddress (1, 0).GetLocal (); // Get Ipv4InterfaceAddress of xth interface.
-     ostringstream stream;
-     addri.Print(stream);
-     string ip = stream.str();
-     return ip;
-}
-
 int main (int argc, char *argv[])
 {
-     // simulation parameters
+     // variables for the simulation parameters
      string protocol = "iec61850";
-     string server = "simple-iec-server";
-     string client = "simple-iec-client";
+     string server = "simple-iec61850-server";
+     string client = "simple-iec61850-client";
      string dataRate = "5Mbps";
      string delay = "2ms";
-     bool tracing = false;
-     uint32_t nSpokes = 8; // Default number of nodes in the star (without router)
+     string configFileIn = "";
+     string configFileOut = "";
+     bool pcapTracing = false;
+     bool asciiTracing = false;
+     double duration = 30.0;
+     string filePrefix = "genericstar";
+     uint32_t nSpokes = 4; // Default number of nodes in the star (without router)
 
      CommandLine cmd;
+     cmd.AddValue ("ConfigFileIn", "Input config file", configFileIn);
+     cmd.AddValue ("ConfigFileOut", "Output config file", configFileOut);
      cmd.AddValue ("DataRate", "Datarate of the connection", dataRate);
      cmd.AddValue ("Delay", "Delay of the connection", delay);
-     cmd.AddValue ("Tracing", "Tracing with pcap files", tracing);
+     cmd.AddValue ("PcapTracing", "Tracing with pcap files", pcapTracing);
+     cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
+     cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.AddValue ("nSpokes", "Number of nodes to place in the star", nSpokes);
      cmd.Parse (argc, argv);
 
      NS_LOG_INFO ("Reading Input.");
 
+     // enabling input config
+     if (! configFileIn.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileIn));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Load"));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          ConfigStore inputConfig;
+          inputConfig.ConfigureDefaults ();
+     }
+
+     // logging simulation parameters
+     NS_LOG_INFO ("ConfigFileIn: " + configFileIn);
+     NS_LOG_INFO ("ConfigFileOut: " + configFileOut);
      NS_LOG_INFO ("Protocol: " + protocol);
      NS_LOG_INFO ("Server: " + server);
      NS_LOG_INFO ("Client: " + client);
      NS_LOG_INFO ("DataRate: " + dataRate);
      NS_LOG_INFO ("Delay: " + delay);
-     if (tracing) {
-          NS_LOG_INFO ("Tracing: true");
+     if (pcapTracing) {
+          NS_LOG_INFO ("PcapTracing: true");
      } else {
-          NS_LOG_INFO ("Tracing: false");
+          NS_LOG_INFO ("PcapTracing: false");
      }
-     NS_LOG_INFO ("nSpokes: " << nSpokes);
+     if (asciiTracing) {
+          NS_LOG_INFO ("AsciiTracing: true");
+     } else {
+          NS_LOG_INFO ("AsciiTracing: false");
+     }
+     NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
+     NS_LOG_INFO ("nSpokes: " + StringHelper::toString(nSpokes));
 
-     NS_LOG_INFO ("Building star topology.");
+     NS_LOG_INFO ("Building generic star topology.");
 
+     // creating point to point helper
      NS_LOG_INFO ("Creating PointToPointHelper.");
      PointToPointHelper pointToPoint;
      pointToPoint.SetDeviceAttribute ("DataRate", StringValue (dataRate));
      pointToPoint.SetChannelAttribute ("Delay", StringValue (delay));
      PointToPointStarHelper star (nSpokes, pointToPoint);
 
-     NS_LOG_INFO ("Installing internet stack on all nodes.");
+     // installing the internet stack on all nodes
+     NS_LOG_INFO ("Installing internet stack.");
      InternetStackHelper internet;
      star.InstallStack (internet);
 
-     NS_LOG_INFO ("Assigning IP Addresses.");
+     // assigning ip addresses
+     NS_LOG_INFO ("Assigning IP addresses.");
      star.AssignIpv4Addresses (Ipv4AddressHelper ("10.1.1.0", "255.255.255.0"));
 
-     // Turn on global static routing so we can actually be routed across the
-     // star.
+     // turning on global static routing
      Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
+     // installing the applications on the nodes
      NS_LOG_INFO ("Installing applications.");
-
      DceManagerHelper dceManager;
      DceApplicationHelper dce;
      ApplicationContainer apps;
 
      dce.SetStackSize (1<<20);
 
+     // launching simple_iec_server on all server nodes
      for (uint32_t i = 0; i < star.SpokeCount ()-1; ++i) {
           dceManager.Install (star.GetSpokeNode (i));
           dce.SetBinary (server);
           dce.ResetArguments ();
           dce.ResetEnvironment ();
-          // to check whether different server instances are running --> servers are starting with different timestamps
+          dce.AddArgument ("-p 10102");
+          dce.AddArgument ("-w 36");
+          dce.AddArgument ("-v");
           apps = dce.Install (star.GetSpokeNode (i));
-          apps.Start (Seconds (double(i+2)));
-          apps.Stop (Seconds (30.0));
+          apps.Start (Seconds (1.0));
      }
 
-     // Install the client on the last node
+     // launching simple_iec_client on the last node
      dceManager.Install (star.GetSpokeNode(star.SpokeCount()-1));
-     dce.SetBinary (client);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     dce.AddArgument("10.1.1.2");
-     apps = dce.Install (star.GetSpokeNode(star.SpokeCount()-1));
-     apps.Start (Seconds (10.0));
-     apps.Stop (Seconds (12.0));
-
-     // Install the client on the last node to ask another Server
-     // dce.SetBinary ("simple_iec_client");
-     // dce.ResetArguments ();
-     // dce.ResetEnvironment ();
-     // dce.AddArgument("10.1.4.2");
-     // apps = dce.Install (star.GetSpokeNode(star.SpokeCount()-1));
-     // apps.Start (Seconds (20.0));
-     // apps.Stop (Seconds (22.0));
-
-     if (tracing) {
-          NS_LOG_INFO ("Enabling pcap tracing.");
-          pointToPoint.EnablePcapAll ("generic-star", false);
+     for (uint32_t i = 0; i < star.SpokeCount ()-1; ++i) {
+          dce.SetBinary (client);
+          dce.ResetArguments ();
+          dce.ResetEnvironment ();
+          dce.AddArgument ("-c 4");
+          dce.AddArgument ("-s 1");
+          dce.AddArgument ("-p 10102");
+          dce.AddArgument(IpHelper::getIp(star.GetSpokeNode (i)));
+          apps = dce.Install (star.GetSpokeNode(star.SpokeCount()-1));
+          apps.Start (Seconds (5.0));
      }
 
+     // enabling pcap tracing
+     if (pcapTracing) {
+          NS_LOG_INFO ("Enabling pcap tracing");
+          pointToPoint.EnablePcapAll (filePrefix, false);
+     }
+
+     // enabling ASCII tracing
+     if (asciiTracing) {
+          NS_LOG_INFO ("Enabling ASCII tracing");
+          AsciiTraceHelper ascii;
+          pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
+     }
+
+     Simulator::Stop (Seconds(duration));
+
+     // enabling output config
+     if (! configFileOut.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileOut));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
+          ConfigStore outputConfig;
+          outputConfig.ConfigureDefaults ();
+          outputConfig.ConfigureAttributes ();
+     }
+
+     // running simulation
      NS_LOG_INFO ("Running Simulation.");
-     Simulator::Stop (Seconds(30.0));
      Simulator::Run ();
      Simulator::Destroy ();
      NS_LOG_INFO ("Simulation done.");

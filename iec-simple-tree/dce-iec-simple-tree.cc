@@ -10,8 +10,9 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/constant-position-mobility-model.h"
-#include "ccnx/misc-tools.h"
+#include "utils/ip-helper.h"
+#include "utils/string-helper.h"
+#include "ns3/config-store.h"
 
 #include <string>
 #include <sstream>
@@ -42,55 +43,73 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("SimpleTree");
 
-// Function to get the IP-Address as string
-string ipAddressToString(NodeContainer& nodes, uint32_t index) {
-     Ptr<Node> node =  nodes.Get(index); // Get pointer to ith node in container
-     Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> (); // Get Ipv4 instance of the node
-     Ipv4Address addri = ipv4->GetAddress (1, 0).GetLocal (); // Get Ipv4InterfaceAddress of xth interface.
-     ostringstream stream;
-     addri.Print(stream);
-     string ip = stream.str();
-     return ip;
-}
-
 int main (int argc, char *argv[])
 {
-     // simulation parameters
+     // variables for the simulation parameters
      string protocol = "iec61850";
-     string server = "simple-iec-server";
-     string client = "simple-iec-client";
+     string server = "simple-iec61850-server";
+     string client = "simple-iec61850-client";
      string dataRate = "5Mbps";
      string delay = "2ms";
-     bool tracing = false;
+     string configFileIn = "";
+     string configFileOut = "";
+     bool pcapTracing = false;
+     bool asciiTracing = false;
+     double duration = 30.0;
+     string filePrefix = "simpletree";
 
+     // parsing arguments given from the command line
      CommandLine cmd;
+     cmd.AddValue ("ConfigFileIn", "Input config file", configFileIn);
+     cmd.AddValue ("ConfigFileOut", "Output config file", configFileOut);
      cmd.AddValue ("DataRate", "Datarate of the connection", dataRate);
      cmd.AddValue ("Delay", "Delay of the connection", delay);
-     cmd.AddValue ("Tracing", "Tracing with pcap files", tracing);
+     cmd.AddValue ("PcapTracing", "Tracing with pcap files", pcapTracing);
+     cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
+     cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.Parse (argc, argv);
 
-     NS_LOG_INFO ("Reading Input.");
+     NS_LOG_INFO ("Reading Input");
 
+     // enabling input config
+     if (! configFileIn.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileIn));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Load"));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          ConfigStore inputConfig;
+          inputConfig.ConfigureDefaults ();
+     }
+
+     // logging simulation parameters
+     NS_LOG_INFO ("ConfigFileIn: " + configFileIn);
+     NS_LOG_INFO ("ConfigFileOut: " + configFileOut);
      NS_LOG_INFO ("Protocol: " + protocol);
      NS_LOG_INFO ("Server: " + server);
      NS_LOG_INFO ("Client: " + client);
      NS_LOG_INFO ("DataRate: " + dataRate);
      NS_LOG_INFO ("Delay: " + delay);
-     if (tracing) {
-          NS_LOG_INFO ("Tracing: true");
+     if (pcapTracing) {
+          NS_LOG_INFO ("PcapTracing: true");
      } else {
-          NS_LOG_INFO ("Tracing: false");
+          NS_LOG_INFO ("PcapTracing: false");
      }
+     if (asciiTracing) {
+          NS_LOG_INFO ("AsciiTracing: true");
+     } else {
+          NS_LOG_INFO ("AsciiTracing: false");
+     }
+     NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
-     NS_LOG_INFO ("Building tree topology.");
+     NS_LOG_INFO ("Building tree topology");
 
      // 1 NodeContainer, first nodes are always routers and last node is always
      // the client
-     NS_LOG_INFO ("Creating Nodes.");
+     NS_LOG_INFO ("Creating Nodes");
      NodeContainer nodes;
      nodes.Create (8);
 
-     NS_LOG_INFO ("Creating PointToPointHelper.");
+     // creating point to point helper
+     NS_LOG_INFO ("Creating PointToPointHelper");
      PointToPointHelper pointToPoint_r1_r2, pointToPoint_r1_r3,
           pointToPoint_r2_s1, pointToPoint_r2_s2, pointToPoint_r3_s3,
           pointToPoint_r3_s4, pointToPoint_r1_c;
@@ -109,7 +128,8 @@ int main (int argc, char *argv[])
      pointToPoint_r1_c.SetDeviceAttribute ("DataRate", StringValue (dataRate));
      pointToPoint_r1_c.SetChannelAttribute ("Delay", StringValue (delay));
 
-     NS_LOG_INFO ("Creating NetDeviceContainer.");
+     // creating net device container
+     NS_LOG_INFO ("Creating NetDeviceContainer");
      NetDeviceContainer devices_r1_r2, devices_r1_r3, devices_r2_s1,
           devices_r2_s2, devices_r3_s3, devices_r3_s4, devices_r1_c;
      devices_r1_r2 = pointToPoint_r1_r2.Install(nodes.Get (0), nodes.Get (1));
@@ -120,11 +140,13 @@ int main (int argc, char *argv[])
      devices_r3_s4 = pointToPoint_r3_s4.Install(nodes.Get (2), nodes.Get (6));
      devices_r1_c = pointToPoint_r1_c.Install(nodes.Get (0), nodes.Get (nodes.GetN() -1));
 
-     NS_LOG_INFO ("Installing internet stack on all nodes.");
+     // installing the internet stack
+     NS_LOG_INFO ("Installing internet stack");
      InternetStackHelper stack;
      stack.InstallAll ();
 
-     NS_LOG_INFO ("Assigning IP Addresses.");
+     // assigning ip addresses
+     NS_LOG_INFO ("Assigning IP Addresses");
      Ipv4AddressHelper address;
      Ipv4InterfaceContainer interfaces;
      address.SetBase ("10.1.1.0", "255.255.255.252");
@@ -142,10 +164,11 @@ int main (int argc, char *argv[])
      address.SetBase ("10.1.7.0", "255.255.255.252");
      interfaces = address.Assign (devices_r1_c);
 
-     // // Turn on global static routing
+     // turning on global static routing
      Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-     NS_LOG_INFO ("Installing applications.");
+     // installing the applications on the nodes
+     NS_LOG_INFO ("Installing applications");
      DceManagerHelper dceManager;
      DceApplicationHelper dce;
      ApplicationContainer apps;
@@ -153,57 +176,61 @@ int main (int argc, char *argv[])
 
      dce.SetStackSize (1<<20);
 
-     // Installing the server
-     dce.SetBinary (server);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     apps = dce.Install (nodes.Get (3));
-     apps.Start (Seconds (2.0));
-     apps.Stop (Seconds (30.0));
-
-     // Installing the server
-     dce.SetBinary (server);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     apps = dce.Install (nodes.Get (4));
-     apps.Start (Seconds (4.0));
-     apps.Stop (Seconds (30.0));
-
-     // Installing the server
-     dce.SetBinary (server);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     apps = dce.Install (nodes.Get (5));
-     apps.Start (Seconds (6.0));
-     apps.Stop (Seconds (30.0));
-
-     // Installing the server
-     dce.SetBinary (server);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     apps = dce.Install (nodes.Get (6));
-     apps.Start (Seconds (8.0));
-     apps.Stop (Seconds (30.0));
-
-     // Installing the client on the last node
-     dce.SetBinary (client);
-     dce.ResetArguments ();
-     dce.ResetEnvironment ();
-     dce.AddArgument("10.1.3.2");
-     apps = dce.Install (nodes.Get (nodes.GetN() -1));
-     apps.Start (Seconds (10.0));
-     apps.Stop (Seconds (12.0));
-
-     if (tracing) {
-          NS_LOG_INFO ("Enabling pcap tracing.");
-          pointToPoint_r1_r2.EnablePcapAll ("simple_tree", false);
+     // launching simple_iec_server on the nodes
+     for (uint32_t i = 3; i < nodes.GetN ()-1; ++i) {
+          dce.SetBinary (server);
+          dce.ResetArguments ();
+          dce.ResetEnvironment ();
+          dce.AddArgument ("-p 10102");
+          dce.AddArgument ("-w 36");
+          dce.AddArgument ("-v");
+          apps = dce.Install (nodes.Get (i));
+          apps.Start (Seconds (1.0));
      }
 
-     NS_LOG_INFO ("Running Simulation.");
-     Simulator::Stop (Seconds(30.0));
+     // launching simple_iec_client on the last node
+     for (uint32_t i = 3; i < nodes.GetN ()-1; ++i) {
+          dce.SetBinary (client);
+          dce.ResetArguments ();
+          dce.ResetEnvironment ();
+          dce.AddArgument ("-c 4");
+          dce.AddArgument ("-s 1");
+          dce.AddArgument ("-p 10102");
+          dce.AddArgument(IpHelper::getIp(nodes.Get(i)));
+          apps = dce.Install (nodes.Get (nodes.GetN ()-1));
+          apps.Start (Seconds (5.0));
+     }
+
+     // enabling pcap tracing
+     if (pcapTracing) {
+          NS_LOG_INFO ("Enabling pcap tracing");
+          pointToPoint_r1_r2.EnablePcapAll (filePrefix, false);
+     }
+
+     // enabling ASCII tracing
+     if (asciiTracing) {
+          NS_LOG_INFO ("Enabling ASCII tracing");
+          AsciiTraceHelper ascii;
+          pointToPoint_r1_r2.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
+     }
+
+     Simulator::Stop (Seconds(duration));
+
+     // enabling output config
+     if (! configFileOut.empty()) {
+          Config::SetDefault ("ns3::ConfigStore::Filename", StringValue (configFileOut));
+          Config::SetDefault ("ns3::ConfigStore::FileFormat", StringValue ("RawText"));
+          Config::SetDefault ("ns3::ConfigStore::Mode", StringValue ("Save"));
+          ConfigStore outputConfig;
+          outputConfig.ConfigureDefaults ();
+          outputConfig.ConfigureAttributes ();
+     }
+
+     // running simulation
+     NS_LOG_INFO ("Running Simulation");
      Simulator::Run ();
      Simulator::Destroy ();
-     NS_LOG_INFO ("Simulation done.");
+     NS_LOG_INFO ("Simulation done");
 
      return 0;
 }
