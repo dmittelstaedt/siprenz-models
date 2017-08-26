@@ -215,7 +215,7 @@ int main (int argc, char *argv[])
           dce.SetBinary (client);
           dce.ResetArguments ();
           dce.ResetEnvironment ();
-          dce.AddArgument ("-c 4");
+          // dce.AddArgument ("-c 4");
           dce.AddArgument ("-s 1");
           dce.AddArgument ("-p 10102");
           dce.AddArgument (IpHelper::getIp(ueNodes.Get(i)));

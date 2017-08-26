@@ -10,10 +10,12 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
-#include "ns3/constant-position-mobility-model.h"
+#include "ns3/mobility-module.h"
 #include "utils/ip-helper.h"
 #include "utils/string-helper.h"
+#include "utils/position-helper.h"
 #include "ns3/config-store.h"
+#include "ns3/netanim-module.h"
 
 #include <string>
 #include <sstream>
@@ -55,6 +57,7 @@ int main (int argc, char *argv[])
      string configFileOut = "";
      bool pcapTracing = false;
      bool asciiTracing = false;
+     bool animTracing = false;
      double duration = 30.0;
      string filePrefix = "simplep2p";
 
@@ -66,6 +69,7 @@ int main (int argc, char *argv[])
      cmd.AddValue ("Delay", "Delay of the connection", delay);
      cmd.AddValue ("PcapTracing", "Tracing with pcap files", pcapTracing);
      cmd.AddValue ("AsciiTracing", "Tracing with ASCII files", asciiTracing);
+     cmd.AddValue ("AnimTracing", "Tracing with anim files", animTracing);
      cmd.AddValue ("Duration", "Duration of the simulation in sec", duration);
      cmd.Parse (argc, argv);
 
@@ -98,6 +102,12 @@ int main (int argc, char *argv[])
      } else {
           NS_LOG_INFO ("AsciiTracing: false");
      }
+     if (animTracing) {
+          NS_LOG_INFO ("AnimTracing: true");
+     } else {
+          NS_LOG_INFO ("AnimTracing: false");
+     }
+
      NS_LOG_INFO ("Duration: " + StringHelper::toString(duration) + " sec");
 
      NS_LOG_INFO ("Building P2P topology");
@@ -106,6 +116,27 @@ int main (int argc, char *argv[])
      NS_LOG_INFO ("Creating Nodes");
      NodeContainer nodes;
      nodes.Create (2);
+
+     // creating mobility helper
+     MobilityHelper mobility;
+
+     // set position allocator
+     mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+          "MinX", DoubleValue (0.0),
+          "MinY", DoubleValue (0.0),
+          "DeltaX", DoubleValue (30.0),
+          "DeltaY", DoubleValue (10.0),
+          "GridWidth", UintegerValue (3),
+          "LayoutType", StringValue ("RowFirst"));
+
+     // set mobility model
+     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+
+     // install mobililty model to nodes
+     mobility.Install (nodes);
+
+     // set the position manually
+     PositionHelper::setPosition(nodes.Get(1), 50, 0);
 
      // creating point to point helper
      NS_LOG_INFO ("Creating PointToPointHelper");
@@ -173,6 +204,12 @@ int main (int argc, char *argv[])
           NS_LOG_INFO ("Enabling ASCII tracing");
           AsciiTraceHelper ascii;
           pointToPoint.EnableAsciiAll (ascii.CreateFileStream (filePrefix + ".tr"));
+     }
+
+     // enabling anim tracing
+     if (animTracing) {
+          NS_LOG_INFO ("Enabling anim tracing");
+          AnimationInterface anim (filePrefix + "-anim.xml");
      }
 
      Simulator::Stop (Seconds(duration));

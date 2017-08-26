@@ -5,7 +5,7 @@ import ns3waf
 def configure(conf):
         conf.load('compiler_c')
         conf.load('compiler_cxx')
-        ns3waf.check_modules(conf, ['core', 'point-to-point', 'internet', 'network', 'applications', 'csma'], mandatory = True)
+        ns3waf.check_modules(conf, ['core', 'point-to-point', 'internet', 'network', 'applications', 'csma', 'netanim'], mandatory = True)
 
 def build(bld):
-        bld.build_a_script('dce', needed = ['core', 'point-to-point', 'network', 'applications', 'dce', 'mobility'], target='bin/dce-iec-simple-p2p', source=['dce-iec-simple-p2p.cc', 'utils/ip-helper.cc', 'utils/string-helper.cc'] )
+        bld.build_a_script('dce', needed = ['core', 'point-to-point', 'network', 'applications', 'dce', 'mobility', 'netanim'], target='bin/dce-iec-simple-p2p', source=['dce-iec-simple-p2p.cc', 'utils/ip-helper.cc', 'utils/string-helper.cc', 'utils/position-helper.cc'] )
