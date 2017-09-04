@@ -1,7 +1,10 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A simple model for the usage of IEC61850.
-+    This model contains two nodes, which are connected over P2P. One node is
-+    the server and the other node the client.
+/**  Brief A simple model for the usage of IEC61850 in a star topology, based
++    on an P2P connections.
++    This model contains three server, which are connected over P2P and a
++    router to the client.
++
++    @author David Mittelstädt
 */
 
 #include "ns3/core-module.h"

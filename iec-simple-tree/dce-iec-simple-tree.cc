@@ -1,8 +1,12 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A template for the usage of dce in combination with
-+    smart grid protocols. Can only be used with the p2p
-+    protocol.
+/**  Brief A simple model for the usage of IEC61850 in a tree topology, based
++    on an P2P connections.
++    This model contains four server, which are connected over P2P and three
++    routers to the client.
++
++    @author David Mittelstädt
 */
+
 
 #include "ns3/core-module.h"
 #include "ns3/dce-module.h"
@@ -43,6 +47,13 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("SimpleTree");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // variables for the simulation parameters

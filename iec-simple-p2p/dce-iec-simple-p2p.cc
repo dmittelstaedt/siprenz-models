@@ -2,6 +2,8 @@
 /**  Brief A simple model for the usage of IEC61850.
 +    This model contains two nodes, which are connected over P2P. One node is
 +    the server and the other node the client.
++
++    @author David Mittelstädt
 */
 
 #include "ns3/core-module.h"
@@ -31,16 +33,16 @@ using namespace std;
 *
 * 2 nodes : IEC61850 Client and Server
 *
-* Note :  Tested with libIEC61850, simple-iec61850-server and
-*         simple-iec61850-client.
+* Note :  Tested with libIEC61850, simple_iec_server and simple_iec_client.
+*         The libIEC61850 applications are written by David Mittelstaedt.
 * ===========================================================================
 */
 
-NS_LOG_COMPONENT_DEFINE ("SimpleP2P");
+NS_LOG_COMPONENT_DEFINE ("simplep2p");
 
 /**
 * Main function.
-* Details of the function.
+* Starts the simulation.
 * @param argc Number of arguments
 * @param argv Content of the arguments
 * @return Exit status of the application
@@ -51,14 +53,14 @@ int main (int argc, char *argv[])
      string protocol = "iec61850";
      string server = "simple-iec61850-server";
      string client = "simple-iec61850-client";
-     string dataRate = "5Mbps";
+     string dataRate = "1Mbps";
      string delay = "2ms";
      string configFileIn = "";
      string configFileOut = "";
-     bool pcapTracing = false;
-     bool asciiTracing = false;
-     bool animTracing = false;
-     double duration = 30.0;
+     bool pcapTracing = true;
+     bool asciiTracing = true;
+     bool animTracing = true;
+     double duration = 60.0;
      string filePrefix = "simplep2p";
 
      // parsing arguments given from the command line
@@ -136,7 +138,7 @@ int main (int argc, char *argv[])
      mobility.Install (nodes);
 
      // set the position manually
-     PositionHelper::setPosition(nodes.Get(1), 50, 0);
+     // PositionHelper::setPosition(nodes.Get(1), 50, 0);
 
      // creating point to point helper
      NS_LOG_INFO ("Creating PointToPointHelper");
@@ -186,7 +188,7 @@ int main (int argc, char *argv[])
      dce.SetBinary (client);
      dce.ResetArguments ();
      dce.ResetEnvironment ();
-     dce.AddArgument ("-c 4");
+     // dce.AddArgument ("-c 4");
      dce.AddArgument ("-s 1");
      dce.AddArgument ("-p 10102");
      dce.AddArgument (IpHelper::getIp(nodes.Get(0)));
@@ -210,6 +212,7 @@ int main (int argc, char *argv[])
      if (animTracing) {
           NS_LOG_INFO ("Enabling anim tracing");
           AnimationInterface anim (filePrefix + "-anim.xml");
+          anim.EnablePacketMetadata (true);
      }
 
      Simulator::Stop (Seconds(duration));

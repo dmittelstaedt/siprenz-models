@@ -30,6 +30,13 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("Template");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // variables for the simulation parameters

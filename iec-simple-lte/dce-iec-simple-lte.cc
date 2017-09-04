@@ -1,7 +1,9 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A template for the usage of dce in combination with
-+    smart grid protocols. Can only be used with the p2p
-+    protocol.
+/**  Brief A simple model for the usage of IEC61850 in an lte based network.
++    This model contains one UEs, which ist connected over eNB and PGW to
++    the client.
++
++    @author David Mittelstädt
 */
 
 #include <ns3/core-module.h>
@@ -25,11 +27,19 @@ using namespace std;
 //
 // TODO: graphic with modell
 //
-// Note : Tested with libIEC61850.
+// Note :  Tested with libIEC61850, simple_iec_server and simple_iec_client.
+//         The libIEC61850 applications are written by David Mittelstaedt.
 // ===========================================================================
 
 NS_LOG_COMPONENT_DEFINE ("SimpleLTE");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // simulation parameters

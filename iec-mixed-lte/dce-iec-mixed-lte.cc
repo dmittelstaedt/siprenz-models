@@ -1,7 +1,10 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A template for the usage of dce in combination with
-+    smart grid protocols. Can only be used with the p2p
-+    protocol.
+/**  Brief A mixed model for the usage of IEC61850 in an lte and P2P based
++    network. This model contains two UEs, which are connected over eNB and
++    PGW to the client. The client is also connected over P2P to another
++    server.
++
++    @author David Mittelstädt
 */
 
 #include <ns3/core-module.h>
@@ -34,11 +37,19 @@ using namespace std;
 //                                 s1
 //
 //
-// Note : Tested with libIEC61850.
+// Note :  Tested with libIEC61850, simple_iec_server and simple_iec_client.
+//         The libIEC61850 applications are written by David Mittelstaedt.
 // ===========================================================================
 
 NS_LOG_COMPONENT_DEFINE ("MixedLTE");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // simulation parameters

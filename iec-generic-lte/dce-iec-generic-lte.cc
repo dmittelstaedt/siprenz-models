@@ -1,7 +1,9 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A template for the usage of dce in combination with
-+    smart grid protocols. Can only be used with the p2p
-+    protocol.
+/**  Brief A generic model for the usage of IEC61850 in an lte based network.
++    This model contains two UEs, which are connected over eNB and PGW to
++    the client.
++
++    @author David Mittelstädt
 */
 
 #include <ns3/core-module.h>
@@ -25,25 +27,33 @@ using namespace std;
 //
 // TODO: graphic with modell
 //
-// Note : Tested with libIEC61850.
+// Note :  Tested with libIEC61850, simple_iec_server and simple_iec_client.
+//         The libIEC61850 applications are written by David Mittelstaedt.
 // ===========================================================================
 
-NS_LOG_COMPONENT_DEFINE ("GenericLTE");
+NS_LOG_COMPONENT_DEFINE ("genericlte");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // simulation parameters
      string protocol = "iec61850";
-     string server = "simple-iec-server";
-     string client = "simple-iec-client";
-     string dataRate = "100Mbps";
+     string server = "simple-iec61850-server";
+     string client = "simple-iec61850-client";
+     string dataRate = "5Mbps";
      string delay = "2ms";
      string configFileIn = "";
      string configFileOut = "";
      bool pcapTracing = false;
      bool asciiTracing = false;
      bool lteTracing = false;
-     double duration = 30.0;
+     double duration = 15.0;
      uint32_t nUes = 2;
      string filePrefix = "genericlte";
 
@@ -145,7 +155,6 @@ int main (int argc, char *argv[])
      enbNodes.Create (1);
      ueNodes.Create (nUes);
 
-     //TODO: how to set the position
      MobilityHelper mobility;
      mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
      mobility.Install (enbNodes);

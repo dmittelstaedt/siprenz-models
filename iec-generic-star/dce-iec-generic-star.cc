@@ -1,7 +1,9 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/**  Brief A simple model for the usage of IEC61850.
-+    This model contains two nodes, which are connected over P2P. One node is
-+    the server and the other node the client.
+/**  Brief A generic model for the usage of IEC61850 in a P2P-based star.
++    This model contains one client and several servers which are connected
++    over a router to each other.
++
++    @author David Mittelstädt
 */
 
 #include "ns3/core-module.h"
@@ -40,6 +42,13 @@ using namespace std;
 
 NS_LOG_COMPONENT_DEFINE ("GenericStar");
 
+/**
+* Main function.
+* Starts the simulation.
+* @param argc Number of arguments
+* @param argv Content of the arguments
+* @return Exit status of the application
+*/
 int main (int argc, char *argv[])
 {
      // variables for the simulation parameters
@@ -52,7 +61,7 @@ int main (int argc, char *argv[])
      string configFileOut = "";
      bool pcapTracing = false;
      bool asciiTracing = false;
-     double duration = 30.0;
+     double duration = 15.0;
      string filePrefix = "genericstar";
      uint32_t nSpokes = 4; // Default number of nodes in the star (without router)
 
